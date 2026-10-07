@@ -15,6 +15,37 @@ DateTime almatyTime(DateTime instant) => tz.TZDateTime.from(instant, _almaty);
 DiaryDate almatyDay(DateTime instant) =>
     DiaryDate.fromDateTime(almatyTime(instant));
 
+/// The picker components describe Almaty wall time, never the phone's timezone.
+DateTime almatyWallTime(DiaryDate date, int hour, int minute) {
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+    throw const FormatException('Неверное время.');
+  }
+  final local = tz.TZDateTime(
+    _almaty,
+    date.year,
+    date.month,
+    date.day,
+    hour,
+    minute,
+  );
+  // DST gaps in historical dates must not silently shift the user's time.
+  // For a repeated historical time, timezone chooses a deterministic offset.
+  if (local.year != date.year ||
+      local.month != date.month ||
+      local.day != date.day ||
+      local.hour != hour ||
+      local.minute != minute) {
+    throw const FormatException(
+      'Такого времени нет в часовом поясе Алматы. Выберите другое время.',
+    );
+  }
+  final utc = local.toUtc();
+  if (utc.year < 1 || utc.year > 9999) {
+    throw const FormatException('Дата и время выходят за допустимый диапазон.');
+  }
+  return utc;
+}
+
 DateTime nextAlmatyMidnight(DateTime instant) {
   final local = almatyTime(instant);
   return tz.TZDateTime(_almaty, local.year, local.month, local.day + 1).toUtc();

@@ -6,9 +6,31 @@ import '../formatting/diary_format.dart';
 import '../models/day.dart';
 import '../models/diary_date.dart';
 import '../state/day_providers.dart';
+import 'trip_form.dart';
 
 class DayScreen extends ConsumerWidget {
   const DayScreen({super.key});
+
+  Future<void> _addTrip(
+    BuildContext context,
+    WidgetRef ref,
+    DiaryDate selected,
+  ) async {
+    final affectedDay = await Navigator.of(context).push<DiaryDate>(
+      MaterialPageRoute(builder: (_) => TripForm(initialDate: selected)),
+    );
+    if (affectedDay == null || !context.mounted) return;
+    final currentDay = ref.read(selectedDayProvider);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          affectedDay == currentDay
+              ? 'Поездка сохранена'
+              : 'Поездка сохранена: ${formatDay(affectedDay)}',
+        ),
+      ),
+    );
+  }
 
   Future<void> _refresh(WidgetRef ref, DiaryDate date) async {
     try {
@@ -46,6 +68,17 @@ class DayScreen extends ConsumerWidget {
     final day = ref.watch(dayProvider(selected));
 
     return Scaffold(
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+          child: FilledButton.icon(
+            key: const Key('add-trip'),
+            onPressed: () => _addTrip(context, ref, selected),
+            icon: const Icon(Icons.add),
+            label: const Text('Добавить поездку', textAlign: TextAlign.center),
+          ),
+        ),
+      ),
       appBar: AppBar(
         title: const Text('Дневник смен'),
         actions: [
