@@ -3,13 +3,14 @@ from logging.config import fileConfig
 from alembic import context
 
 from app.core.config import get_settings
-from app.db.database import Base, create_database_engine
+from app.db.database import create_database_engine
+from app.db.models import Trip
 
 config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-target_metadata = Base.metadata
+target_metadata = Trip.metadata
 
 
 def run_migrations_offline() -> None:
