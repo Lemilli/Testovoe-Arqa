@@ -1,0 +1,47 @@
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.egg-info/
+
+# Runtime SQLite databases (including journals)
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*
+
+# Flutter/Dart, native builds and dependencies
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+build/
+coverage/
+.gradle/
+local.properties
+Pods/
+.symlinks/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+
+# Editors and OS files
+.idea/
+.vscode/
+*.iml
+.DS_Store
+*.log
+
+# Keep dependency locks in Git: backend/uv.lock and mobile/pubspec.lock.
