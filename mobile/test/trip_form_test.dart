@@ -14,6 +14,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'fixtures/day_fixtures.dart';
+import 'fixtures/diary_test_helpers.dart';
 
 class FormTripApi extends TripApi {
   FormTripApi(this.respond) : super(Dio());
@@ -45,9 +46,16 @@ Future<void> pumpForm(
         tripApiProvider.overrideWithValue(api),
         uuidGeneratorProvider.overrideWithValue(() => 'form-id-${++nextId}'),
       ],
-      child: MediaQuery(
-        data: MediaQueryData(textScaler: TextScaler.linear(textScale)),
-        child: const DriverShiftDiaryApp(),
+      child: MediaQuery.fromView(
+        view: tester.view,
+        child: Builder(
+          builder: (context) => MediaQuery(
+            data: MediaQuery.of(
+              context,
+            ).copyWith(textScaler: TextScaler.linear(textScale)),
+            child: const DriverShiftDiaryApp(),
+          ),
+        ),
       ),
     ),
   );
@@ -90,10 +98,15 @@ Future<void> pickTime(
   final fields = find.descendant(of: dialog, matching: find.byType(TextField));
   await tester.enterText(fields.at(0), hour);
   await tester.enterText(fields.at(1), minute);
-  await tester.tap(
-    find.text(MaterialLocalizations.of(tester.element(dialog)).okButtonLabel),
-  );
   await tester.pumpAndSettle();
+  final ok = find.text(
+    MaterialLocalizations.of(tester.element(dialog)).okButtonLabel,
+  );
+  await tester.ensureVisible(ok);
+  await tester.pumpAndSettle();
+  await tester.tap(ok);
+  await tester.pumpAndSettle();
+  expect(find.byType(TimePickerDialog), findsNothing);
 }
 
 Future<void> pickDate(WidgetTester tester, String key, String day) async {
@@ -117,14 +130,14 @@ void expectFieldsLocked(WidgetTester tester, bool locked) {
       locked ? isNull : isNotNull,
     );
   }
-  expect(
-    tester
-        .widget<DropdownButtonFormField<PaymentMethod>>(
-          find.byKey(const Key('trip-payment')),
-        )
-        .onChanged,
-    locked ? isNull : isNotNull,
-  );
+  for (final payment in ['cash', 'card']) {
+    expect(
+      tester
+          .widget<OutlinedButton>(find.byKey(Key('payment-$payment')))
+          .onPressed,
+      locked ? isNull : isNotNull,
+    );
+  }
 }
 
 void main() {
@@ -135,8 +148,11 @@ void main() {
     await pumpForm(tester, api);
 
     expect(find.byType(TripForm), findsOneWidget);
-    expect(find.text('Время Алматы (Asia/Almaty)'), findsOneWidget);
-    expect(find.text('1 октября 2026'), findsNWidgets(2));
+    expect(find.text('Время Алматы'), findsOneWidget);
+    expect(find.text('Новая поездка'), findsOneWidget);
+    expect(find.text('Сохранить поездку'), findsOneWidget);
+    await expectDateControl(tester, 'start-date', '1 октября 2026');
+    await expectDateControl(tester, 'end-date', '1 октября 2026');
     expect(find.text('09:00'), findsOneWidget);
     expect(find.text('09:30'), findsOneWidget);
     expectFieldsLocked(tester, false);
@@ -216,9 +232,7 @@ void main() {
         },
       );
       await enterMoney(tester, amount: '9007199254740993', commission: '0');
-      await tapKey(tester, 'trip-payment');
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Карта').last);
+      await tapKey(tester, 'payment-card');
       await tester.pumpAndSettle();
       await tapKey(tester, 'save-trip');
       await tester.pumpAndSettle();
@@ -231,8 +245,8 @@ void main() {
       expect(sent.commission, BigInt.zero);
       expect(sent.payment, PaymentMethod.card);
       expect(find.byType(TripForm), findsNothing);
-      expect(find.text('Поездка сохранена'), findsOneWidget);
-      expect(find.text('3 315 ₸'), findsOneWidget);
+      expect(find.text('Поездка добавлена'), findsOneWidget);
+      expect(findMoney('3 315 ₸'), findsOneWidget);
       expect(dayRequests, 2);
       expect(tester.takeException(), isNull);
     },
@@ -277,8 +291,8 @@ void main() {
     await tapKey(tester, 'save-trip');
     await tester.pumpAndSettle();
 
-    expect(find.text('Поездка сохранена: 2 октября 2026'), findsOneWidget);
-    expect(find.text('1 октября 2026'), findsOneWidget);
+    expect(find.text('Поездка добавлена: 2 октября 2026'), findsOneWidget);
+    await expectSelectedDate(tester, '1 октября 2026');
     expect(loaded, [sampleDate]);
     final container = ProviderScope.containerOf(
       tester.element(find.byType(DayScreen)),
@@ -303,7 +317,8 @@ void main() {
     await tester.pump();
 
     expect(api.requests, hasLength(1));
-    expect(find.text('Сохранение поездки…'), findsOneWidget);
+    expect(find.text('Отправляем поездку'), findsOneWidget);
+    expect(find.text('Отправляем…'), findsOneWidget);
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
     expectFieldsLocked(tester, true);
     expect(
@@ -349,7 +364,8 @@ void main() {
     await tester.tap(find.byKey(const Key('add-trip')));
     await tester.pumpAndSettle();
 
-    expect(find.text('1 октября 2026'), findsNWidgets(2));
+    await expectDateControl(tester, 'start-date', '1 октября 2026');
+    await expectDateControl(tester, 'end-date', '1 октября 2026');
     expect(find.text('Нет подтверждения сервера.'), findsOneWidget);
     expectFieldsLocked(tester, true);
     expect(
@@ -365,8 +381,8 @@ void main() {
     expect(api.requests, hasLength(2));
     expect(identical(api.requests[0], api.requests[1]), isTrue);
     expect(find.byType(TripForm), findsNothing);
-    expect(find.text('2 октября 2026'), findsOneWidget);
-    expect(find.text('Поездка сохранена: 1 октября 2026'), findsOneWidget);
+    await expectSelectedDate(tester, '2 октября 2026');
+    expect(find.text('Поездка добавлена: 1 октября 2026'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -460,4 +476,128 @@ void main() {
     expect(find.byType(TripForm), findsNothing);
     expect(tester.takeException(), isNull);
   });
+
+  for (final invalidField in ['trip-amount', 'trip-commission']) {
+    testWidgets(
+      'first invalid $invalidField is focused and scrolled into view',
+      (tester) async {
+        tester.view.physicalSize = const Size(320, 640);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        final api = FormTripApi((trip, _) async => trip);
+        await pumpForm(tester, api, textScale: 2);
+        await enterMoney(
+          tester,
+          amount: invalidField == 'trip-amount' ? '' : '2400',
+          commission: '-1',
+        );
+        FocusManager.instance.primaryFocus?.unfocus();
+        await tester.ensureVisible(find.byKey(const Key('end-time')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('save-trip')));
+        await tester.pumpAndSettle();
+
+        final field = find.byKey(Key(invalidField));
+        expect(
+          tester
+              .widget<EditableText>(
+                find.descendant(of: field, matching: find.byType(EditableText)),
+              )
+              .focusNode
+              .hasFocus,
+          isTrue,
+        );
+        expect(tester.state<FormFieldState<String>>(field).hasError, isTrue);
+        final rect = tester.getRect(field);
+        final action = tester.getRect(find.byKey(const Key('save-trip')));
+        expect(rect.top, greaterThanOrEqualTo(0));
+        expect(rect.center.dy, lessThan(action.top));
+        expect(api.requests, isEmpty);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets('invalid time focuses the end control and reveals its error', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final api = FormTripApi((trip, _) async => trip);
+    await pumpForm(tester, api);
+    await pickTime(tester, 'end-time', '09', '00');
+    await enterMoney(tester);
+    FocusManager.instance.primaryFocus?.unfocus();
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('save-trip')));
+    await tester.pumpAndSettle();
+
+    final end = find.byKey(const Key('end-time'));
+    expect(tester.widget<OutlinedButton>(end).focusNode!.hasFocus, isTrue);
+    expect(end.hitTestable(), findsOneWidget);
+    expect(
+      find.text('Окончание должно быть позже начала.').hitTestable(),
+      findsOneWidget,
+    );
+    expect(api.requests, isEmpty);
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final size in [
+    const Size(320, 640),
+    const Size(360, 800),
+    const Size(390, 844),
+    const Size(430, 932),
+  ]) {
+    for (final scale in [1.0, 2.0]) {
+      testWidgets('form supports $size, text scale $scale, and keyboard', (
+        tester,
+      ) async {
+        tester.view.physicalSize = size;
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        tester.view.padding = const FakeViewPadding(bottom: 24);
+        addTearDown(tester.view.resetPadding);
+        final api = FormTripApi((trip, _) async => trip);
+        await pumpForm(tester, api, textScale: scale);
+        expectMinimumTapTarget(tester, find.byKey(const Key('close-trip')));
+        for (final key in [
+          'payment-cash',
+          'payment-card',
+          'start-date',
+          'start-time',
+          'end-date',
+          'end-time',
+        ]) {
+          final control = find.byKey(Key(key));
+          await tester.ensureVisible(control);
+          expectMinimumTapTarget(tester, control);
+        }
+        tester.view.viewInsets = const FakeViewPadding(bottom: 280);
+        addTearDown(tester.view.resetViewInsets);
+        await tester.pumpAndSettle();
+        await enterMoney(
+          tester,
+          amount: '9223372036854775807',
+          commission: '0',
+        );
+        final save = find.byKey(const Key('save-trip'));
+        expectMinimumTapTarget(tester, save);
+        final action = tester.getRect(save);
+        expect(action.bottom, lessThanOrEqualTo(size.height - 280));
+        expect(action.left, greaterThanOrEqualTo(0));
+        expect(action.right, lessThanOrEqualTo(size.width));
+        await tapKey(tester, 'save-trip');
+        await tester.pumpAndSettle();
+        expect(api.requests, hasLength(1));
+        expect(api.requests.single.amount, BigInt.parse('9223372036854775807'));
+        expect(find.byType(TripForm), findsNothing);
+        expect(tester.takeException(), isNull);
+      });
+    }
+  }
 }

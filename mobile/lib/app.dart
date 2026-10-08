@@ -3,6 +3,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'state/day_providers.dart';
+import 'theme/shift_theme.dart';
 import 'widgets/day_screen.dart';
 
 class DriverShiftDiaryApp extends ConsumerStatefulWidget {
@@ -38,10 +39,7 @@ class _DriverShiftDiaryAppState extends ConsumerState<DriverShiftDiaryApp> {
       locale: const Locale('ru'),
       supportedLocales: const [Locale('ru')],
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
-      theme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF006A6A)),
-      ),
+      theme: buildShiftTheme(),
       home: const DayScreen(),
     );
   }

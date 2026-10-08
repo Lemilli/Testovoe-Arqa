@@ -13,6 +13,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 
+import '../test/fixtures/diary_test_helpers.dart';
+
 /// Run against a migrated temporary API database, with TEST_DAY and its next
 /// day empty. HTTP and server responses are real. Only one received POST success
 /// is deliberately discarded to reproduce a lost response after server commit.
@@ -77,17 +79,17 @@ void main() {
     final container = ProviderScope.containerOf(
       tester.element(find.byType(DayScreen)),
     );
-    expect(find.text(formatDay(date)), findsOneWidget);
-    expect(find.text('0 ₸'), findsNWidgets(5));
+    await expectSelectedDate(tester, formatDay(date));
+    expect(findMoney('0 ₸'), findsNWidgets(5));
 
     await tester.tap(find.byKey(const Key('add-trip')));
     await tester.pumpAndSettle();
     await _enterMoney(tester, '2400', '360');
     await _choosePayment(tester, 'card');
     await _tapSave(tester);
-    expect(find.text('Поездка сохранена'), findsOneWidget);
-    expect(find.text('2 040 ₸'), findsOneWidget);
-    expect(find.text('2 400 ₸'), findsWidgets);
+    expect(find.text('Поездка добавлена'), findsOneWidget);
+    expect(findMoney('2 040 ₸'), findsOneWidget);
+    expect(findMoney('2 400 ₸'), findsWidgets);
 
     await tester.tap(find.byKey(const Key('add-trip')));
     await tester.pumpAndSettle();
@@ -119,8 +121,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('next-day')));
     await tester.pumpAndSettle();
-    expect(find.text(formatDay(date.next)), findsOneWidget);
-    expect(find.text('0 ₸'), findsNWidgets(5));
+    await expectSelectedDate(tester, formatDay(date.next));
+    expect(findMoney('0 ₸'), findsNWidgets(5));
     await tester.tap(find.byKey(const Key('add-trip')));
     await tester.pumpAndSettle();
     expect(
@@ -136,13 +138,13 @@ void main() {
     expect(bodies[2], bodies[1]);
     expect(container.read(tripSubmissionProvider).pending, isNull);
     expect(container.read(selectedDayProvider), date.next);
-    expect(find.text('0 ₸'), findsNWidgets(5));
+    expect(findMoney('0 ₸'), findsNWidgets(5));
 
     await tester.tap(find.byKey(const Key('previous-day')));
     await tester.pumpAndSettle();
-    expect(find.text('3 900 ₸'), findsOneWidget);
-    expect(find.text('585 ₸'), findsOneWidget);
-    expect(find.text('3 315 ₸'), findsOneWidget);
+    expect(findMoney('3 900 ₸'), findsOneWidget);
+    expect(findMoney('585 ₸'), findsOneWidget);
+    expect(findMoney('3 315 ₸'), findsOneWidget);
     final day = await container.read(dayApiProvider).getDay(date);
     expect(day.summary.tripCount, 2);
     expect(day.summary.cash, BigInt.from(1500));
@@ -177,9 +179,7 @@ Future<void> _tapSave(WidgetTester tester) async {
 }
 
 Future<void> _choosePayment(WidgetTester tester, String payment) async {
-  await tester.ensureVisible(find.byKey(const Key('trip-payment')));
-  await tester.tap(find.byKey(const Key('trip-payment')));
-  await tester.pumpAndSettle();
-  await tester.tap(find.byKey(Key('payment-$payment')).last);
+  await tester.ensureVisible(find.byKey(Key('payment-$payment')));
+  await tester.tap(find.byKey(Key('payment-$payment')));
   await tester.pumpAndSettle();
 }

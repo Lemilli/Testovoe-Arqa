@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'fixtures/day_fixtures.dart';
+import 'fixtures/diary_test_helpers.dart';
 
 void main() {
   testWidgets('midnight updates Today without changing the selected day', (
@@ -21,16 +22,16 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('1 октября 2026'), findsOneWidget);
+    await expectSelectedDate(tester, '1 октября 2026');
     expect(find.text('Сегодня'), findsNothing);
     now = DateTime.parse('2026-10-01T19:00:00Z');
     await tester.pump(const Duration(seconds: 1));
     await tester.pumpAndSettle();
-    expect(find.text('1 октября 2026'), findsOneWidget);
+    await expectSelectedDate(tester, '1 октября 2026');
     expect(find.text('Сегодня'), findsOneWidget);
     await tester.tap(find.byKey(const Key('today')));
     await tester.pumpAndSettle();
-    expect(find.text('2 октября 2026'), findsOneWidget);
+    await expectSelectedDate(tester, '2 октября 2026');
     expect(find.text('Сегодня'), findsNothing);
     expect(tester.takeException(), isNull);
   });
@@ -57,7 +58,7 @@ void main() {
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
     await tester.pumpAndSettle();
-    expect(find.text('1 октября 2026'), findsOneWidget);
+    await expectSelectedDate(tester, '1 октября 2026');
     expect(find.text('Сегодня'), findsOneWidget);
     await tester.tap(find.byKey(const Key('choose-day')));
     await tester.pumpAndSettle();
@@ -83,7 +84,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Дневник смен'), findsOneWidget);
-    expect(find.text('1 октября 2026'), findsOneWidget);
+    await expectSelectedDate(tester, '1 октября 2026');
     expect(find.text('На руки'), findsOneWidget);
     expect(find.text('Hello World!'), findsNothing);
 
